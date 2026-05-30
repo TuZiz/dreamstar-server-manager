@@ -179,6 +179,26 @@ async function main() {
     const server = configService.getServer(routeParam(req, 'id'));
     return fileService.writeTextFile(server.workdir, String(req.body.path ?? ''), String(req.body.content ?? ''));
   }));
+  app.post('/api/servers/:id/file/create', asyncRoute((req) => {
+    const server = configService.getServer(routeParam(req, 'id'));
+    return fileService.createTextFile(server.workdir, String(req.body.path ?? ''), String(req.body.content ?? ''));
+  }));
+  app.post('/api/servers/:id/directory/create', asyncRoute((req) => {
+    const server = configService.getServer(routeParam(req, 'id'));
+    return fileService.createDirectoryInside(server.workdir, String(req.body.path ?? ''));
+  }));
+  app.post('/api/servers/:id/path/rename', asyncRoute((req) => {
+    const server = configService.getServer(routeParam(req, 'id'));
+    return fileService.renamePath(
+      server.workdir,
+      String(req.body.from ?? ''),
+      String(req.body.to ?? '')
+    );
+  }));
+  app.post('/api/servers/:id/path/delete', asyncRoute((req) => {
+    const server = configService.getServer(routeParam(req, 'id'));
+    return fileService.deletePath(server.workdir, String(req.body.path ?? ''));
+  }));
 
   app.get('/api/databases', asyncRoute(() => databaseManager.list()));
   app.post('/api/databases/create', asyncRoute((req) =>

@@ -152,6 +152,22 @@ export function registerIpc(context: IpcContext): void {
     const server = configService.getServer(id);
     return fileService.writeTextFile(server.workdir, relativePath, content);
   });
+  handle('servers:create-text-file', (id: string, relativePath: string, content?: string) => {
+    const server = configService.getServer(id);
+    return fileService.createTextFile(server.workdir, relativePath, content ?? '');
+  });
+  handle('servers:create-directory', (id: string, relativePath: string) => {
+    const server = configService.getServer(id);
+    return fileService.createDirectoryInside(server.workdir, relativePath);
+  });
+  handle('servers:rename-path', (id: string, fromRelativePath: string, toRelativePath: string) => {
+    const server = configService.getServer(id);
+    return fileService.renamePath(server.workdir, fromRelativePath, toRelativePath);
+  });
+  handle('servers:delete-path', (id: string, relativePath: string) => {
+    const server = configService.getServer(id);
+    return fileService.deletePath(server.workdir, relativePath);
+  });
 
   handle('databases:list', () => databaseManager.list());
   handle('databases:create', (input: Omit<DatabaseConnectionConfig, 'createdAt' | 'updatedAt'>) =>

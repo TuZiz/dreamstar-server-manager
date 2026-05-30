@@ -45,6 +45,10 @@ export interface DreamstarApi {
     listFiles(id: string, relativePath?: string): Promise<InstanceFileEntry[]>;
     readTextFile(id: string, relativePath: string): Promise<InstanceTextFile>;
     writeTextFile(id: string, relativePath: string, content: string): Promise<void>;
+    createTextFile(id: string, relativePath: string, content?: string): Promise<InstanceTextFile>;
+    createDirectory(id: string, relativePath: string): Promise<void>;
+    renamePath(id: string, fromRelativePath: string, toRelativePath: string): Promise<void>;
+    deletePath(id: string, relativePath: string): Promise<void>;
     subscribeLogs(id: string, listener: (entry: LogEntry) => void): () => void;
     subscribeState(listener: (state: InstanceRuntimeState) => void): () => void;
     subscribeLogsCleared(listener: (id: string) => void): () => void;

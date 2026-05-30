@@ -143,6 +143,13 @@ function createWebDreamstarApi(): DreamstarApi {
         request(`/servers/${encodePath(id)}/file${query({ path: relativePath })}`),
       writeTextFile: (id, relativePath, content) =>
         post(`/servers/${encodePath(id)}/file`, { path: relativePath, content }),
+      createTextFile: (id, relativePath, content = '') =>
+        post(`/servers/${encodePath(id)}/file/create`, { path: relativePath, content }),
+      createDirectory: (id, relativePath) =>
+        post(`/servers/${encodePath(id)}/directory/create`, { path: relativePath }),
+      renamePath: (id, fromRelativePath, toRelativePath) =>
+        post(`/servers/${encodePath(id)}/path/rename`, { from: fromRelativePath, to: toRelativePath }),
+      deletePath: (id, relativePath) => post(`/servers/${encodePath(id)}/path/delete`, { path: relativePath }),
       subscribeLogs: (id, listener) => {
         const subscription = { id, listener };
         logListeners.add(subscription);

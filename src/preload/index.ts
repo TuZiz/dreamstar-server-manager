@@ -41,6 +41,12 @@ const api: DreamstarApi = {
     readTextFile: (id, relativePath) => invoke('servers:read-text-file', id, relativePath),
     writeTextFile: (id, relativePath, content) =>
       invoke('servers:write-text-file', id, relativePath, content),
+    createTextFile: (id, relativePath, content) =>
+      invoke('servers:create-text-file', id, relativePath, content),
+    createDirectory: (id, relativePath) => invoke('servers:create-directory', id, relativePath),
+    renamePath: (id, fromRelativePath, toRelativePath) =>
+      invoke('servers:rename-path', id, fromRelativePath, toRelativePath),
+    deletePath: (id, relativePath) => invoke('servers:delete-path', id, relativePath),
     subscribeLogs: (id, listener) => {
       const handler = (_event: Electron.IpcRendererEvent, entry: unknown) => {
         const logEntry = entry as Parameters<typeof listener>[0];

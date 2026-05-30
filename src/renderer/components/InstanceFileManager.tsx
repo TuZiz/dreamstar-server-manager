@@ -1,4 +1,4 @@
-import { ChevronLeft, FileText, Folder, RefreshCw, Save } from 'lucide-react';
+import { ChevronLeft, FilePlus, FileText, Folder, FolderPlus, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { InstanceFileEntry, InstanceTextFile, ServerInstanceConfig } from '../../shared/types';
 
@@ -21,6 +21,14 @@ function parentPath(path: string): string {
   const parts = path.split('/').filter(Boolean);
   parts.pop();
   return parts.join('/');
+}
+
+function cleanRelativePath(path: string): string {
+  return path.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+}
+
+function joinRelativePath(parent: string, child: string): string {
+  return [parent, child].filter(Boolean).join('/');
 }
 
 function isLikelyEditable(entry: InstanceFileEntry): boolean {
@@ -94,21 +102,31 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server.id]);
 
-  const openTextPath = async (relativePath: string, label?: string) => {
+  const showTextFile = async (file: InstanceTextFile, okMessage = '') => {
+    const nextPath = parentPath(file.relativePath);
+    const nextEntries = await window.dreamstar.servers.listFiles(server.id, nextPath);
+    setCurrentPath(nextPath);
+    setEntries(nextEntries);
+    setSelectedFile(file);
+    setContent(file.content);
+    setMessage(file.truncated ? '文件超过 1MB，仅显示前 1MB，保存会覆盖完整文件，请谨慎。' : okMessage);
+  };
+
+  const runFileAction = async (action: () => Promise<void>) => {
     setError('');
     setMessage('');
     try {
-      const file = await window.dreamstar.servers.readTextFile(server.id, relativePath);
-      const nextPath = parentPath(file.relativePath);
-      const nextEntries = await window.dreamstar.servers.listFiles(server.id, nextPath);
-      setCurrentPath(nextPath);
-      setEntries(nextEntries);
-      setSelectedFile(file);
-      setContent(file.content);
-      setMessage(file.truncated ? '文件超过 1MB，仅显示前 1MB，保存会覆盖完整文件，请谨慎。' : label ? `已打开 ${label}` : '');
+      await action();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  };
+
+  const openTextPath = async (relativePath: string, label?: string) => {
+    await runFileAction(async () => {
+      const file = await window.dreamstar.servers.readTextFile(server.id, relativePath);
+      await showTextFile(file, label ? `已打开 ${label}` : '');
+    });
   };
 
   const openEntry = async (entry: InstanceFileEntry) => {
@@ -129,15 +147,57 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
 
   const save = async () => {
     if (!selectedFile) return;
-    setError('');
-    setMessage('');
-    try {
+    await runFileAction(async () => {
       await window.dreamstar.servers.writeTextFile(server.id, selectedFile.relativePath, content);
       await load(currentPath, true);
       setMessage('文件已保存');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    });
+  };
+
+  const createFile = async () => {
+    const value = window.prompt('输入新文件相对路径', joinRelativePath(currentPath, 'config.yml'));
+    const relativePath = cleanRelativePath(value ?? '');
+    if (!relativePath) return;
+    await runFileAction(async () => {
+      const file = await window.dreamstar.servers.createTextFile(server.id, relativePath, '');
+      await showTextFile(file, `已创建 ${file.relativePath}`);
+    });
+  };
+
+  const createFolder = async () => {
+    const value = window.prompt('输入新文件夹相对路径', joinRelativePath(currentPath, 'new-folder'));
+    const relativePath = cleanRelativePath(value ?? '');
+    if (!relativePath) return;
+    await runFileAction(async () => {
+      await window.dreamstar.servers.createDirectory(server.id, relativePath);
+      await load(parentPath(relativePath), true);
+      setMessage(`已创建文件夹 ${relativePath}`);
+    });
+  };
+
+  const renameSelected = async () => {
+    if (!selectedFile) return;
+    const value = window.prompt('输入新的相对路径', selectedFile.relativePath);
+    const nextPath = cleanRelativePath(value ?? '');
+    if (!nextPath || nextPath === selectedFile.relativePath) return;
+    await runFileAction(async () => {
+      await window.dreamstar.servers.renamePath(server.id, selectedFile.relativePath, nextPath);
+      const file = await window.dreamstar.servers.readTextFile(server.id, nextPath);
+      await showTextFile(file, `已重命名为 ${nextPath}`);
+    });
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedFile) return;
+    if (!window.confirm(`确认删除 ${selectedFile.relativePath}？此操作不会进入回收站。`)) return;
+    const deletedPath = selectedFile.relativePath;
+    await runFileAction(async () => {
+      await window.dreamstar.servers.deletePath(server.id, deletedPath);
+      setSelectedFile(null);
+      setContent('');
+      await load(parentPath(deletedPath), true);
+      setMessage(`已删除 ${deletedPath}`);
+    });
   };
 
   return (
@@ -164,6 +224,43 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
             上级
           </button>
           <span className="truncate text-xs text-slate-500">{server.workdir}</span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
+          <button
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium hover:bg-slate-50"
+            type="button"
+            onClick={() => void createFile()}
+          >
+            <FilePlus size={14} />
+            新文件
+          </button>
+          <button
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium hover:bg-slate-50"
+            type="button"
+            onClick={() => void createFolder()}
+          >
+            <FolderPlus size={14} />
+            新文件夹
+          </button>
+          <button
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+            type="button"
+            disabled={!selectedFile}
+            onClick={() => void renameSelected()}
+          >
+            <Pencil size={14} />
+            重命名
+          </button>
+          <button
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-red-200 bg-white px-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
+            type="button"
+            disabled={!selectedFile}
+            onClick={() => void deleteSelected()}
+          >
+            <Trash2 size={14} />
+            删除
+          </button>
         </div>
 
         <div className="border-b border-slate-200 px-3 py-3">

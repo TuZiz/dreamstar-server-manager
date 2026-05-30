@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { basename, join, relative, resolve } from 'path';
+import { basename, dirname, join, relative, resolve } from 'path';
 import type { InstanceFileEntry, InstanceTextFile } from '../../shared/types';
 
 export class FileService {
@@ -76,6 +76,37 @@ export class FileService {
     await fs.writeFile(filePath, content, 'utf8');
   }
 
+  async createTextFile(root: string, relativePath: string, content = ''): Promise<InstanceTextFile> {
+    this.assertRelativePath(relativePath, '文件路径不能为空');
+    const filePath = this.resolveInside(root, relativePath);
+    await fs.mkdir(dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, content, { encoding: 'utf8', flag: 'wx' });
+    return this.readTextFile(root, relativePath);
+  }
+
+  async createDirectoryInside(root: string, relativePath: string): Promise<void> {
+    this.assertRelativePath(relativePath, '文件夹路径不能为空');
+    const directoryPath = this.resolveInside(root, relativePath);
+    await this.assertPathMissing(directoryPath, '目标文件夹已存在');
+    await fs.mkdir(directoryPath, { recursive: true });
+  }
+
+  async renamePath(root: string, fromRelativePath: string, toRelativePath: string): Promise<void> {
+    this.assertRelativePath(fromRelativePath, '原路径不能为空');
+    this.assertRelativePath(toRelativePath, '新路径不能为空');
+    const fromPath = this.resolveInside(root, fromRelativePath);
+    const toPath = this.resolveInside(root, toRelativePath);
+    await this.assertPathMissing(toPath, '目标路径已存在');
+    await fs.mkdir(dirname(toPath), { recursive: true });
+    await fs.rename(fromPath, toPath);
+  }
+
+  async deletePath(root: string, relativePath: string): Promise<void> {
+    this.assertRelativePath(relativePath, '删除路径不能为空');
+    const targetPath = this.resolveInside(root, relativePath);
+    await fs.rm(targetPath, { recursive: true, force: false });
+  }
+
   private resolveInside(root: string, relativePath = ''): string {
     const rootPath = resolve(root);
     const targetPath = resolve(rootPath, relativePath || '.');
@@ -84,6 +115,24 @@ export class FileService {
       throw new Error('路径不能超出实例工作目录');
     }
     return targetPath;
+  }
+
+  private assertRelativePath(relativePath: string, message: string): void {
+    if (!relativePath.trim()) {
+      throw new Error(message);
+    }
+  }
+
+  private async assertPathMissing(path: string, message: string): Promise<void> {
+    try {
+      await fs.lstat(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return;
+      }
+      throw error;
+    }
+    throw new Error(message);
   }
 
   private toRelative(root: string, absolutePath: string): string {
