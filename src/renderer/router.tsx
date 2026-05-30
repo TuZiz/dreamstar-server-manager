@@ -24,7 +24,7 @@ export const routes = [
 ];
 
 export const createActions = [
-  { to: '/create/minecraft', label: 'Minecraft', icon: PlusCircle },
-  { to: '/create/velocity', label: 'Velocity', icon: SquareTerminal },
-  { to: '/create/custom', label: '自定义进程', icon: PlusCircle }
+  { to: '/create/minecraft', label: '添加 Minecraft', icon: PlusCircle },
+  { to: '/create/velocity', label: '添加 Velocity', icon: SquareTerminal },
+  { to: '/create/custom', label: '添加进程', icon: PlusCircle }
 ];

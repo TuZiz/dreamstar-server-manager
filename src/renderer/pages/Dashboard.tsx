@@ -44,15 +44,15 @@ export function Dashboard() {
         <div className="flex flex-wrap gap-2">
           <Link className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-3 text-sm font-semibold text-white" to="/create/minecraft">
             <Server size={16} />
-            创建 Minecraft
+            添加 Minecraft
           </Link>
           <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" to="/create/velocity">
             <Plus size={16} />
-            创建 Velocity
+            添加 Velocity
           </Link>
           <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" to="/create/custom">
             <Plus size={16} />
-            自定义进程
+            添加进程
           </Link>
           <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" to="/databases">
             <Database size={16} />
@@ -102,7 +102,7 @@ export function Dashboard() {
       ) : filteredServers.length === 0 ? (
         <div className="panel p-10 text-center">
           <h2 className="text-lg font-semibold text-slate-900">还没有实例</h2>
-          <p className="mt-2 text-sm text-slate-500">先创建一个 Minecraft 服务端或 Velocity 代理。</p>
+          <p className="mt-2 text-sm text-slate-500">先添加一个已有实例，把工作目录和启动命令托管进来。</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3 lg:grid-cols-2">

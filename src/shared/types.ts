@@ -89,23 +89,15 @@ export interface MinecraftServerCreateInput {
   workdir: string;
   createDirectory: boolean;
   group?: string;
-  engine: Exclude<ServerEngine, 'velocity'>;
-  jarSourcePath?: string;
-  copyJar: boolean;
-  jarFileName: string;
-  javaPath: string;
-  minMemory: string;
-  maxMemory: string;
-  jvmArgsText?: string;
-  appArgsText?: string;
-  nogui: boolean;
+  engine?: Exclude<ServerEngine, 'velocity'>;
+  commandLine: string;
+  stopCommand?: string;
   autoRestart: boolean;
   startupDelaySeconds: number;
   shutdownTimeoutSeconds: number;
   logFile?: string;
-  eulaAccepted: boolean;
-  serverProperties: ServerPropertiesConfig;
-  serverPropertiesMode: 'merge' | 'overwrite';
+  port?: number;
+  maxPlayers?: number;
 }
 
 export interface VelocityServerCreateInput {
@@ -114,21 +106,13 @@ export interface VelocityServerCreateInput {
   workdir: string;
   createDirectory: boolean;
   group?: string;
-  jarSourcePath?: string;
-  copyJar: boolean;
-  jarFileName: string;
-  javaPath: string;
-  minMemory: string;
-  maxMemory: string;
-  bindAddress: string;
-  port: number;
-  onlineMode: boolean;
-  forwardingMode: 'none' | 'legacy' | 'bungeeguard' | 'modern';
-  forwardingSecret?: string;
-  generateForwardingSecret: boolean;
+  commandLine: string;
+  stopCommand?: string;
   autoRestart: boolean;
   startupDelaySeconds: number;
   shutdownTimeoutSeconds: number;
+  logFile?: string;
+  port?: number;
 }
 
 export interface CustomProcessCreateInput {

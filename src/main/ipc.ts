@@ -1,6 +1,5 @@
 import { constants, promises as fs } from 'fs';
 import { join } from 'path';
-import { randomBytes } from 'crypto';
 import { BrowserWindow, ipcMain } from 'electron';
 import type {
   AppConfig,
@@ -8,7 +7,9 @@ import type {
   CustomProcessCreateInput,
   DatabaseConnectionConfig,
   MinecraftServerCreateInput,
+  ServerEngine,
   ServerInstanceConfig,
+  ServerType,
   SelectFileOptions,
   VelocityServerCreateInput
 } from '../shared/types';
@@ -21,11 +22,7 @@ import { PortService } from './system/PortService';
 import { SystemDialogService } from './system/SystemDialogService';
 import { SystemMetricsService } from './system/SystemMetricsService';
 import { toSafeErrorMessage } from './utils/safeError';
-import {
-  mergeServerProperties,
-  serializeServerProperties,
-  splitCommandLine
-} from './utils/validation';
+import { splitCommandLine } from './utils/validation';
 
 type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -38,6 +35,24 @@ interface IpcContext {
   fileService: FileService;
   portService: PortService;
   metricsService: SystemMetricsService;
+}
+
+interface ManagedCreateInput {
+  id: string;
+  name: string;
+  type: ServerType;
+  engine?: ServerEngine;
+  workdir: string;
+  createDirectory: boolean;
+  commandLine: string;
+  stopCommand: string;
+  autoRestart: boolean;
+  startupDelaySeconds: number;
+  shutdownTimeoutSeconds: number;
+  group?: string;
+  logFile?: string;
+  port?: number;
+  maxPlayers?: number;
 }
 
 function ok<T>(data: T): ApiResult<T> {
@@ -171,69 +186,23 @@ async function createMinecraftServer(
   fileService: FileService,
   input: MinecraftServerCreateInput
 ): Promise<ServerInstanceConfig> {
-  if (!input.eulaAccepted) {
-    throw new Error('必须确认并同意 Minecraft EULA');
-  }
-  const workdir = input.workdir.trim();
-  await prepareWorkdir(fileService, workdir, input.createDirectory);
-  await fs.mkdir(join(workdir, 'logs'), { recursive: true });
-
-  const jarFileName = input.jarFileName.trim() || `${input.engine}.jar`;
-  const jarPath = await prepareJar(fileService, workdir, jarFileName, input.jarSourcePath, input.copyJar);
-  await fs.writeFile(join(workdir, 'eula.txt'), 'eula=true\n', 'utf8');
-
-  const generatedProperties = serializeServerProperties(input.serverProperties);
-  const propertiesPath = join(workdir, 'server.properties');
-  const propertiesExists = await fileService.checkPathExists(propertiesPath);
-  if (propertiesExists && input.serverPropertiesMode === 'merge') {
-    const existing = await fs.readFile(propertiesPath, 'utf8');
-    await fs.writeFile(propertiesPath, mergeServerProperties(existing, generatedProperties), 'utf8');
-  } else {
-    await fs.writeFile(propertiesPath, generatedProperties, 'utf8');
-  }
-
-  const jvmArgs = splitCommandLine(input.jvmArgsText);
-  const appArgs = splitCommandLine(input.appArgsText);
-  const args = [
-    memoryArg('-Xms', input.minMemory),
-    memoryArg('-Xmx', input.maxMemory),
-    ...jvmArgs,
-    '-jar',
-    input.copyJar ? jarFileName : jarPath,
-    ...appArgs,
-    ...(input.nogui ? ['nogui'] : [])
-  ].filter(Boolean);
-
-  const now = new Date().toISOString();
-  const server: ServerInstanceConfig = {
-    id: input.id.trim(),
-    name: input.name.trim(),
+  return createManagedInstance(configService, fileService, {
+    id: input.id,
+    name: input.name,
     type: 'minecraft',
-    engine: input.engine,
-    workdir,
-    command: input.javaPath.trim() || 'java',
-    args,
-    javaPath: input.javaPath.trim() || 'java',
-    jarPath,
-    minMemory: input.minMemory,
-    maxMemory: input.maxMemory,
-    jvmArgs,
-    appArgs,
-    stopCommand: 'stop',
+    engine: input.engine ?? 'paper',
+    workdir: input.workdir,
+    createDirectory: input.createDirectory,
+    commandLine: input.commandLine,
+    stopCommand: input.stopCommand?.trim() || 'stop',
     autoRestart: input.autoRestart,
-    startupDelaySeconds: Number(input.startupDelaySeconds) || 0,
-    shutdownTimeoutSeconds: Number(input.shutdownTimeoutSeconds) || 30,
-    enabled: true,
-    group: input.group?.trim(),
-    logFile: input.logFile?.trim() || 'logs/latest.log',
-    port: input.serverProperties.serverPort,
-    maxPlayers: input.serverProperties.maxPlayers,
-    motd: input.serverProperties.motd,
-    onlineMode: input.serverProperties.onlineMode,
-    createdAt: now,
-    updatedAt: now
-  };
-  return configService.createServer(server);
+    startupDelaySeconds: input.startupDelaySeconds,
+    shutdownTimeoutSeconds: input.shutdownTimeoutSeconds,
+    group: input.group,
+    logFile: input.logFile,
+    port: input.port,
+    maxPlayers: input.maxPlayers
+  });
 }
 
 async function createVelocityServer(
@@ -241,53 +210,22 @@ async function createVelocityServer(
   fileService: FileService,
   input: VelocityServerCreateInput
 ): Promise<ServerInstanceConfig> {
-  const workdir = input.workdir.trim();
-  await prepareWorkdir(fileService, workdir, input.createDirectory);
-  await fs.mkdir(join(workdir, 'logs'), { recursive: true });
-
-  const jarFileName = input.jarFileName.trim() || 'velocity.jar';
-  const jarPath = await prepareJar(fileService, workdir, jarFileName, input.jarSourcePath, input.copyJar);
-  const secret = input.generateForwardingSecret
-    ? randomBytes(16).toString('hex')
-    : input.forwardingSecret?.trim() || '';
-  if (secret) {
-    await fs.writeFile(join(workdir, 'forwarding.secret'), `${secret}\n`, 'utf8');
-  }
-  await fs.writeFile(join(workdir, 'velocity.toml'), buildVelocityToml(input, secret), 'utf8');
-
-  const args = [
-    memoryArg('-Xms', input.minMemory),
-    memoryArg('-Xmx', input.maxMemory),
-    '-jar',
-    input.copyJar ? jarFileName : jarPath
-  ].filter(Boolean);
-
-  const now = new Date().toISOString();
-  const server: ServerInstanceConfig = {
-    id: input.id.trim(),
-    name: input.name.trim(),
+  return createManagedInstance(configService, fileService, {
+    id: input.id,
+    name: input.name,
     type: 'velocity',
     engine: 'velocity',
-    workdir,
-    command: input.javaPath.trim() || 'java',
-    args,
-    javaPath: input.javaPath.trim() || 'java',
-    jarPath,
-    minMemory: input.minMemory,
-    maxMemory: input.maxMemory,
-    stopCommand: 'end',
+    workdir: input.workdir,
+    createDirectory: input.createDirectory,
+    commandLine: input.commandLine,
+    stopCommand: input.stopCommand?.trim() || 'end',
     autoRestart: input.autoRestart,
-    startupDelaySeconds: Number(input.startupDelaySeconds) || 0,
-    shutdownTimeoutSeconds: Number(input.shutdownTimeoutSeconds) || 30,
-    enabled: true,
-    group: input.group?.trim(),
-    logFile: 'logs/latest.log',
-    port: Number(input.port) || 25565,
-    onlineMode: input.onlineMode,
-    createdAt: now,
-    updatedAt: now
-  };
-  return configService.createServer(server);
+    startupDelaySeconds: input.startupDelaySeconds,
+    shutdownTimeoutSeconds: input.shutdownTimeoutSeconds,
+    group: input.group,
+    logFile: input.logFile,
+    port: input.port
+  });
 }
 
 async function createCustomProcess(
@@ -295,27 +233,60 @@ async function createCustomProcess(
   fileService: FileService,
   input: CustomProcessCreateInput
 ): Promise<ServerInstanceConfig> {
+  const commandLine = [input.command, input.argsText].filter(Boolean).join(' ');
+  return createManagedInstance(configService, fileService, {
+    id: input.id,
+    name: input.name,
+    type: 'custom',
+    engine: 'custom',
+    workdir: input.workdir,
+    createDirectory: input.createDirectory,
+    commandLine,
+    stopCommand: input.stopCommand?.trim() ?? '',
+    autoRestart: input.autoRestart,
+    startupDelaySeconds: input.startupDelaySeconds,
+    shutdownTimeoutSeconds: input.shutdownTimeoutSeconds,
+    group: input.group,
+    logFile: input.logFile
+  });
+}
+
+async function createManagedInstance(
+  configService: ConfigService,
+  fileService: FileService,
+  input: ManagedCreateInput
+): Promise<ServerInstanceConfig> {
   const workdir = input.workdir.trim();
   await prepareWorkdir(fileService, workdir, input.createDirectory);
-  if (!input.command.trim()) {
-    throw new Error('命令不能为空');
+
+  const commandParts = splitCommandLine(input.commandLine);
+  if (commandParts.length === 0) {
+    throw new Error('启动命令不能为空');
   }
+
+  const logFile = input.logFile?.trim();
+  if (logFile?.startsWith('logs/')) {
+    await fs.mkdir(join(workdir, 'logs'), { recursive: true });
+  }
+
   const now = new Date().toISOString();
   const server: ServerInstanceConfig = {
     id: input.id.trim(),
     name: input.name.trim(),
-    type: 'custom',
-    engine: 'custom',
+    type: input.type,
+    engine: input.engine,
     workdir,
-    command: input.command.trim(),
-    args: splitCommandLine(input.argsText),
-    stopCommand: input.stopCommand?.trim() ?? '',
+    command: commandParts[0],
+    args: commandParts.slice(1),
+    stopCommand: input.stopCommand,
     autoRestart: input.autoRestart,
     startupDelaySeconds: Number(input.startupDelaySeconds) || 0,
-    shutdownTimeoutSeconds: Number(input.shutdownTimeoutSeconds) || 20,
+    shutdownTimeoutSeconds: Number(input.shutdownTimeoutSeconds) || 30,
     enabled: true,
     group: input.group?.trim(),
-    logFile: input.logFile?.trim(),
+    logFile: logFile || undefined,
+    port: input.port ? Number(input.port) : undefined,
+    maxPlayers: input.maxPlayers ? Number(input.maxPlayers) : undefined,
     createdAt: now,
     updatedAt: now
   };
@@ -334,56 +305,4 @@ async function prepareWorkdir(fileService: FileService, workdir: string, createD
     await fileService.createDirectory(workdir);
   }
   await fs.access(workdir, constants.W_OK);
-}
-
-async function prepareJar(
-  fileService: FileService,
-  workdir: string,
-  jarFileName: string,
-  jarSourcePath?: string,
-  copyJar = false
-): Promise<string> {
-  if (!jarFileName) {
-    throw new Error('jar 文件名不能为空');
-  }
-  const targetPath = join(workdir, jarFileName);
-  if (copyJar) {
-    if (!jarSourcePath) {
-      throw new Error('请选择要复制的 jar 文件');
-    }
-    return fileService.copyFileToDirectory(jarSourcePath, workdir, jarFileName);
-  }
-  if (jarSourcePath && (await fileService.checkPathExists(jarSourcePath))) {
-    return jarSourcePath;
-  }
-  if (!(await fileService.checkPathExists(targetPath))) {
-    throw new Error('jar 文件不存在');
-  }
-  return targetPath;
-}
-
-function memoryArg(prefix: '-Xms' | '-Xmx', value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-  return trimmed.startsWith(prefix) ? trimmed : `${prefix}${trimmed}`;
-}
-
-function buildVelocityToml(input: VelocityServerCreateInput, secret: string): string {
-  return [
-    '# Generated by DreamStar Server Manager',
-    `bind = "${input.bindAddress || '0.0.0.0'}:${input.port || 25565}"`,
-    `online-mode = ${input.onlineMode}`,
-    `player-info-forwarding-mode = "${input.forwardingMode}"`,
-    `forwarding-secret-file = "forwarding.secret"`,
-    '',
-    '[servers]',
-    '# Add backend servers in DreamStar later, for example:',
-    '# lobby = "127.0.0.1:25566"',
-    '',
-    '[forced-hosts]',
-    '',
-    `# forwarding secret present: ${secret ? 'yes' : 'no'}`
-  ].join('\n');
 }

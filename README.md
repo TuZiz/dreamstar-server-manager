@@ -30,7 +30,7 @@ npm run build
 
 ## MVP 能力
 
-- 在 UI 中创建 Minecraft、Velocity、自定义控制台实例。
+- 在 UI 中添加 Minecraft、Velocity、自定义控制台实例。
 - 使用 Electron main process 后台启动进程，不弹出一堆 `.bat` 黑窗口。
 - 停止 Minecraft 默认发送 `stop`，停止 Velocity 默认发送 `end`，超时后才强制终止。
 - Dashboard 查看实例状态、PID、端口、工作目录，并支持启动、停止、重启、强制终止。
@@ -41,7 +41,7 @@ npm run build
 ## 基本使用
 
 1. 启动后进入 Dashboard。
-2. 点击“创建 Minecraft”，填写名称、ID、工作目录，选择 jar 文件，勾选 EULA 后保存。
+2. 点击“添加 Minecraft”，填写名称、ID、工作目录、启动命令和关闭命令后保存。
 3. 回到 Dashboard 后点击实例卡片上的启动按钮。
 4. 点击终端按钮进入实例终端页，查看 stdout/stderr 日志并输入命令。
 5. 在 Databases 页面创建 MySQL / PostgreSQL / Redis 连接，保存后可测试连接。
