@@ -1,8 +1,79 @@
-import { Database, Play, Plus, Power, RefreshCw, Search, Server } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Activity, AlertTriangle, Clock3, Cpu, Database, Play, Plus, Power, RefreshCw, Search, Server } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ServerCard } from '../components/ServerCard';
 import { useServerStore } from '../stores/useServerStore';
+import type { InstanceStatus, SystemMetrics } from '../../shared/types';
+
+const ACTIVE_STATUSES: InstanceStatus[] = ['running', 'starting', 'restarting'];
+const ISSUE_STATUSES: InstanceStatus[] = ['crashed', 'error'];
+
+function formatBytes(bytes?: number): string {
+  if (!bytes || bytes <= 0) {
+    return '-';
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(0)} MB`;
+  }
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+function formatDuration(seconds?: number): string {
+  if (!seconds) {
+    return '-';
+  }
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function MetricCard({
+  icon,
+  label,
+  value,
+  detail,
+  tone = 'slate',
+  progress
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number;
+  detail: string;
+  tone?: 'slate' | 'emerald' | 'red' | 'blue';
+  progress?: number;
+}) {
+  const toneClass = {
+    slate: 'bg-slate-100 text-slate-700',
+    emerald: 'bg-emerald-50 text-emerald-700',
+    red: 'bg-red-50 text-red-700',
+    blue: 'bg-blue-50 text-blue-700'
+  }[tone];
+
+  return (
+    <section className="panel p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
+          <div className="mt-2 text-2xl font-semibold text-slate-950">{value}</div>
+        </div>
+        <div className={`flex h-9 w-9 items-center justify-center rounded-md ${toneClass}`}>{icon}</div>
+      </div>
+      <div className="mt-2 truncate text-xs text-slate-500">{detail}</div>
+      {progress !== undefined && (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function Dashboard() {
   const { servers, states, loading, error, start, stop, restart, kill, delete: deleteServer, startAll, stopAll, restartAll } =
@@ -10,6 +81,25 @@ export function Dashboard() {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [actionError, setActionError] = useState('');
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadMetrics = async () => {
+      try {
+        const next = await window.dreamstar.system.getSystemMetrics();
+        if (mounted) setMetrics(next);
+      } catch {
+        if (mounted) setMetrics(null);
+      }
+    };
+    void loadMetrics();
+    const timer = window.setInterval(() => void loadMetrics(), 15000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const filteredServers = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -24,6 +114,17 @@ export function Dashboard() {
       return matchesKeyword && matchesType;
     });
   }, [servers, query, type]);
+
+  const runningCount = useMemo(
+    () => servers.filter((server) => ACTIVE_STATUSES.includes(states[server.id]?.status ?? 'stopped')).length,
+    [servers, states]
+  );
+  const issueCount = useMemo(
+    () => servers.filter((server) => ISSUE_STATUSES.includes(states[server.id]?.status ?? 'stopped')).length,
+    [servers, states]
+  );
+  const memoryUsed = metrics ? metrics.totalMemory - metrics.freeMemory : undefined;
+  const memoryPercent = metrics && metrics.totalMemory > 0 ? ((metrics.totalMemory - metrics.freeMemory) / metrics.totalMemory) * 100 : undefined;
 
   const run = async (action: () => Promise<void>) => {
     setActionError('');
@@ -60,6 +161,37 @@ export function Dashboard() {
           </Link>
         </div>
       </header>
+
+      <section className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          icon={<Activity size={18} />}
+          label="实例"
+          value={`${runningCount}/${servers.length}`}
+          detail="运行中 / 总实例"
+          tone={runningCount > 0 ? 'emerald' : 'slate'}
+        />
+        <MetricCard
+          icon={<AlertTriangle size={18} />}
+          label="异常"
+          value={issueCount}
+          detail="崩溃或错误状态"
+          tone={issueCount > 0 ? 'red' : 'slate'}
+        />
+        <MetricCard
+          icon={<Cpu size={18} />}
+          label="内存"
+          value={metrics ? formatBytes(memoryUsed) : '-'}
+          detail={metrics ? `${formatBytes(metrics.totalMemory)} 总量 · 剩余 ${formatBytes(metrics.freeMemory)}` : '等待本机指标'}
+          tone="blue"
+          progress={memoryPercent}
+        />
+        <MetricCard
+          icon={<Clock3 size={18} />}
+          label="系统"
+          value={metrics ? `${metrics.cpus} 核` : '-'}
+          detail={metrics ? `${metrics.platform} ${metrics.arch} · ${formatDuration(metrics.uptime)}` : '等待本机指标'}
+        />
+      </section>
 
       <section className="panel mb-5 flex flex-wrap items-center gap-3 p-4">
         <div className="flex h-10 min-w-72 flex-1 items-center gap-2 rounded-md border border-slate-300 bg-white px-3">
