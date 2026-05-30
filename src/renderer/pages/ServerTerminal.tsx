@@ -1,9 +1,10 @@
-import { Edit3, Files, Power, RefreshCw, ShieldAlert, SquareTerminal } from 'lucide-react';
+import { Edit3, Files, Info, Play, Power, RefreshCw, ShieldAlert, SquareTerminal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CommandInput, type CommandPreset } from '../components/CommandInput';
 import { ConfirmDangerDialog } from '../components/ConfirmDangerDialog';
 import { InstanceFileManager } from '../components/InstanceFileManager';
+import { InstanceOverview } from '../components/InstanceOverview';
 import { LogViewer } from '../components/LogViewer';
 import { StatusBadge } from '../components/StatusBadge';
 import { TypeBadge } from '../components/TypeBadge';
@@ -36,13 +37,14 @@ function commandPresets(server: ServerInstanceConfig): CommandPreset[] {
 
 export function ServerTerminal() {
   const { id = '' } = useParams();
-  const { servers, states, logs, loadLogs, clearLogs, stop, restart, kill, sendCommand } = useServerStore();
+  const { servers, states, logs, loadLogs, clearLogs, start, stop, restart, kill, sendCommand } = useServerStore();
   const [error, setError] = useState('');
   const [confirmKill, setConfirmKill] = useState(false);
-  const [tab, setTab] = useState<'console' | 'files'>('console');
+  const [tab, setTab] = useState<'overview' | 'console' | 'files'>('overview');
   const server = useMemo(() => servers.find((item) => item.id === id), [servers, id]);
   const state = states[id] ?? { id, status: 'stopped' as const, manualStop: false, lastExitCode: null };
   const running = state.status === 'running';
+  const active = state.status === 'running' || state.status === 'starting' || state.status === 'stopping' || state.status === 'restarting';
 
   useEffect(() => {
     if (id) {
@@ -73,7 +75,7 @@ export function ServerTerminal() {
         <Link to="/dashboard" className="hover:text-slate-900">
           管理面板
         </Link>{' '}
-        / 应用实例 / 终端
+        / 应用实例 / 详情
       </div>
       <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -95,11 +97,27 @@ export function ServerTerminal() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-600" onClick={() => void run(() => stop(id))}>
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={active || !server.enabled}
+            onClick={() => void run(() => start(id))}
+          >
+            <Play size={16} />
+            启动
+          </button>
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!active}
+            onClick={() => void run(() => stop(id))}
+          >
             <Power size={16} />
             关闭
           </button>
-          <button className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" onClick={() => void run(() => restart(id))}>
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!server.enabled}
+            onClick={() => void run(() => restart(id))}
+          >
             <RefreshCw size={16} />
             重启
           </button>
@@ -107,7 +125,11 @@ export function ServerTerminal() {
             <Edit3 size={16} />
             编辑
           </Link>
-          <button className="inline-flex h-10 items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 text-sm font-semibold text-red-700" onClick={() => setConfirmKill(true)}>
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!state.pid}
+            onClick={() => setConfirmKill(true)}
+          >
             <ShieldAlert size={16} />
             终止
           </button>
@@ -117,6 +139,16 @@ export function ServerTerminal() {
       {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${
+            tab === 'overview' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700'
+          }`}
+          onClick={() => setTab('overview')}
+        >
+          <Info size={15} />
+          概览
+        </button>
         <button
           type="button"
           className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${
@@ -139,7 +171,9 @@ export function ServerTerminal() {
         </button>
       </div>
 
-      {tab === 'console' ? (
+      {tab === 'overview' && <InstanceOverview server={server} state={state} />}
+
+      {tab === 'console' && (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <LogViewer logs={logs[id] ?? []} onClear={() => void run(() => clearLogs(id))} />
           <CommandInput
@@ -148,9 +182,9 @@ export function ServerTerminal() {
             onSend={(command) => run(() => sendCommand(id, command))}
           />
         </div>
-      ) : (
-        <InstanceFileManager server={server} />
       )}
+
+      {tab === 'files' && <InstanceFileManager server={server} />}
 
       <ConfirmDangerDialog
         open={confirmKill}
