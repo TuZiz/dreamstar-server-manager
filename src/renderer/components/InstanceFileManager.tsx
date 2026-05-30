@@ -6,6 +6,11 @@ interface InstanceFileManagerProps {
   server: ServerInstanceConfig;
 }
 
+interface QuickFile {
+  label: string;
+  path: string;
+}
+
 function formatSize(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -22,6 +27,38 @@ function isLikelyEditable(entry: InstanceFileEntry): boolean {
   return /\.(txt|log|json|yml|yaml|toml|properties|conf|cfg|ini|bat|cmd|sh|md)$/i.test(entry.name);
 }
 
+function commonConfigFiles(server: ServerInstanceConfig): QuickFile[] {
+  if (server.type === 'velocity') {
+    return [
+      { label: 'velocity.toml', path: 'velocity.toml' },
+      { label: 'forwarding.secret', path: 'forwarding.secret' },
+      { label: 'whitelist', path: 'whitelist.json' },
+      { label: '最新日志', path: server.logFile || 'logs/latest.log' }
+    ];
+  }
+
+  if (server.type === 'minecraft') {
+    return [
+      { label: 'server.properties', path: 'server.properties' },
+      { label: 'bukkit.yml', path: 'bukkit.yml' },
+      { label: 'spigot.yml', path: 'spigot.yml' },
+      { label: 'paper-global', path: 'config/paper-global.yml' },
+      { label: 'paper-world', path: 'config/paper-world-defaults.yml' },
+      { label: 'ops.json', path: 'ops.json' },
+      { label: 'whitelist.json', path: 'whitelist.json' },
+      { label: '最新日志', path: server.logFile || 'logs/latest.log' }
+    ];
+  }
+
+  return [
+    { label: 'config.yml', path: 'config.yml' },
+    { label: 'config.json', path: 'config.json' },
+    { label: '.env', path: '.env' },
+    { label: '启动脚本', path: 'start.bat' },
+    { label: '最新日志', path: server.logFile || 'logs/latest.log' }
+  ];
+}
+
 export function InstanceFileManager({ server }: InstanceFileManagerProps) {
   const [currentPath, setCurrentPath] = useState('');
   const [entries, setEntries] = useState<InstanceFileEntry[]>([]);
@@ -32,11 +69,14 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
   const [loading, setLoading] = useState(false);
 
   const titlePath = useMemo(() => currentPath || '.', [currentPath]);
+  const quickFiles = useMemo(() => commonConfigFiles(server), [server]);
 
-  const load = async (path = currentPath) => {
+  const load = async (path = currentPath, keepFeedback = false) => {
     setLoading(true);
-    setError('');
-    setMessage('');
+    if (!keepFeedback) {
+      setError('');
+      setMessage('');
+    }
     try {
       setEntries(await window.dreamstar.servers.listFiles(server.id, path));
       setCurrentPath(path);
@@ -54,6 +94,23 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server.id]);
 
+  const openTextPath = async (relativePath: string, label?: string) => {
+    setError('');
+    setMessage('');
+    try {
+      const file = await window.dreamstar.servers.readTextFile(server.id, relativePath);
+      const nextPath = parentPath(file.relativePath);
+      const nextEntries = await window.dreamstar.servers.listFiles(server.id, nextPath);
+      setCurrentPath(nextPath);
+      setEntries(nextEntries);
+      setSelectedFile(file);
+      setContent(file.content);
+      setMessage(file.truncated ? '文件超过 1MB，仅显示前 1MB，保存会覆盖完整文件，请谨慎。' : label ? `已打开 ${label}` : '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const openEntry = async (entry: InstanceFileEntry) => {
     setError('');
     setMessage('');
@@ -67,16 +124,7 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
       setError('当前只支持打开常见文本配置文件。');
       return;
     }
-    try {
-      const file = await window.dreamstar.servers.readTextFile(server.id, entry.relativePath);
-      setSelectedFile(file);
-      setContent(file.content);
-      if (file.truncated) {
-        setMessage('文件超过 1MB，仅显示前 1MB，保存会覆盖完整文件，请谨慎。');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    await openTextPath(entry.relativePath);
   };
 
   const save = async () => {
@@ -85,8 +133,8 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
     setMessage('');
     try {
       await window.dreamstar.servers.writeTextFile(server.id, selectedFile.relativePath, content);
+      await load(currentPath, true);
       setMessage('文件已保存');
-      await load(currentPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -118,6 +166,23 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
           <span className="truncate text-xs text-slate-500">{server.workdir}</span>
         </div>
 
+        <div className="border-b border-slate-200 px-3 py-3">
+          <div className="mb-2 text-xs font-semibold text-slate-500">常用配置</div>
+          <div className="flex flex-wrap gap-2">
+            {quickFiles.map((file) => (
+              <button
+                key={`${file.label}-${file.path}`}
+                type="button"
+                className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-300 hover:bg-white"
+                title={file.path}
+                onClick={() => void openTextPath(file.path, file.label)}
+              >
+                {file.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="min-h-0 flex-1 overflow-auto">
           {loading ? (
             <p className="p-4 text-sm text-slate-500">正在读取文件...</p>
@@ -128,7 +193,9 @@ export function InstanceFileManager({ server }: InstanceFileManagerProps) {
               <button
                 key={entry.relativePath}
                 type="button"
-                className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50"
+                className={`flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50 ${
+                  selectedFile?.relativePath === entry.relativePath ? 'bg-blue-50' : ''
+                }`}
                 onClick={() => void openEntry(entry)}
               >
                 <span className={entry.type === 'directory' ? 'text-amber-600' : 'text-slate-500'}>

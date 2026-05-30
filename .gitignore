@@ -4,6 +4,7 @@ out-web/
 output/
 dist/
 .vite/
+.playwright-cli/
 .env
 .env.*
 *.log
