@@ -7,6 +7,14 @@ import type { InstanceStatus, SystemMetrics } from '../../shared/types';
 
 const ACTIVE_STATUSES: InstanceStatus[] = ['running', 'starting', 'restarting'];
 const ISSUE_STATUSES: InstanceStatus[] = ['crashed', 'error'];
+type StatusFilter = 'all' | 'active' | 'stopped' | 'issue';
+
+const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
+  { value: 'all', label: '全部状态' },
+  { value: 'active', label: '运行中' },
+  { value: 'stopped', label: '已停止' },
+  { value: 'issue', label: '异常' }
+];
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes <= 0) {
@@ -80,6 +88,8 @@ export function Dashboard() {
     useServerStore();
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [groupFilter, setGroupFilter] = useState('all');
   const [actionError, setActionError] = useState('');
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
 
@@ -101,9 +111,22 @@ export function Dashboard() {
     };
   }, []);
 
+  const groupOptions = useMemo(() => {
+    const groups = Array.from(
+      new Set(
+        servers
+          .map((server) => server.group?.trim())
+          .filter((group): group is string => Boolean(group))
+      )
+    ).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const hasUngrouped = servers.some((server) => !server.group?.trim());
+    return hasUngrouped ? ['__ungrouped', ...groups] : groups;
+  }, [servers]);
+
   const filteredServers = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return servers.filter((server) => {
+      const runtimeStatus = states[server.id]?.status ?? 'stopped';
       const matchesKeyword =
         !keyword ||
         server.name.toLowerCase().includes(keyword) ||
@@ -111,9 +134,17 @@ export function Dashboard() {
         server.workdir.toLowerCase().includes(keyword) ||
         server.group?.toLowerCase().includes(keyword);
       const matchesType = type === 'all' || server.type === type;
-      return matchesKeyword && matchesType;
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && ACTIVE_STATUSES.includes(runtimeStatus)) ||
+        (statusFilter === 'stopped' && runtimeStatus === 'stopped') ||
+        (statusFilter === 'issue' && ISSUE_STATUSES.includes(runtimeStatus));
+      const matchesGroup =
+        groupFilter === 'all' ||
+        (groupFilter === '__ungrouped' ? !server.group?.trim() : server.group?.trim() === groupFilter);
+      return matchesKeyword && matchesType && matchesStatus && matchesGroup;
     });
-  }, [servers, query, type]);
+  }, [servers, states, query, type, statusFilter, groupFilter]);
 
   const runningCount = useMemo(
     () => servers.filter((server) => ACTIVE_STATUSES.includes(states[server.id]?.status ?? 'stopped')).length,
@@ -209,6 +240,28 @@ export function Dashboard() {
           <option value="velocity">Velocity</option>
           <option value="custom">自定义进程</option>
         </select>
+        <div className="inline-flex h-10 rounded-md border border-slate-300 bg-white p-1">
+          {STATUS_FILTERS.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              className={`rounded px-2.5 text-sm font-medium transition ${
+                statusFilter === item.value ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              onClick={() => setStatusFilter(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <select className="form-input w-44" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+          <option value="all">全部分组</option>
+          {groupOptions.map((group) => (
+            <option key={group} value={group}>
+              {group === '__ungrouped' ? '未分组' : group}
+            </option>
+          ))}
+        </select>
         <button className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium" onClick={() => void run(startAll)}>
           <Play size={15} />
           启动全部
@@ -233,8 +286,10 @@ export function Dashboard() {
         <div className="panel p-8 text-sm text-slate-500">正在加载实例...</div>
       ) : filteredServers.length === 0 ? (
         <div className="panel p-10 text-center">
-          <h2 className="text-lg font-semibold text-slate-900">还没有实例</h2>
-          <p className="mt-2 text-sm text-slate-500">先添加一个已有实例，把工作目录和启动命令托管进来。</p>
+          <h2 className="text-lg font-semibold text-slate-900">{servers.length === 0 ? '还没有实例' : '没有匹配实例'}</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            {servers.length === 0 ? '先添加一个已有实例，把工作目录和启动命令托管进来。' : '调整搜索、状态、类型或分组筛选条件。'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-3 lg:grid-cols-2">
