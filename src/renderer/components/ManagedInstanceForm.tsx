@@ -1,4 +1,4 @@
-import { Calendar, FolderOpen, Save } from 'lucide-react';
+import { FolderOpen, Save } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
@@ -20,15 +20,12 @@ interface ManagedInstanceDraft {
   engine: ServerEngine;
   workdir: string;
   createDirectory: boolean;
-  group: string;
   commandLine: string;
   stopCommand: string;
   autoRestart: boolean;
   startupDelaySeconds: number;
   shutdownTimeoutSeconds: number;
   logFile: string;
-  port: string;
-  maxPlayers: string;
 }
 
 interface ManagedInstanceFormProps {
@@ -45,15 +42,6 @@ const typeOptions: Array<{ value: ManagedKind; label: string }> = [
   { value: 'custom', label: '通用控制台程序' }
 ];
 
-const engineOptions: Array<{ value: ServerEngine; label: string }> = [
-  { value: 'paper', label: 'Paper' },
-  { value: 'purpur', label: 'Purpur' },
-  { value: 'spigot', label: 'Spigot' },
-  { value: 'folia', label: 'Folia' },
-  { value: 'velocity', label: 'Velocity' },
-  { value: 'custom', label: 'Custom' }
-];
-
 function defaults(kind: ManagedKind): ManagedInstanceDraft {
   if (kind === 'velocity') {
     return {
@@ -63,15 +51,12 @@ function defaults(kind: ManagedKind): ManagedInstanceDraft {
       engine: 'velocity',
       workdir: '',
       createDirectory: false,
-      group: 'proxy',
       commandLine: 'java -Xms512M -Xmx1G -jar velocity.jar',
       stopCommand: 'end',
       autoRestart: false,
       startupDelaySeconds: 0,
       shutdownTimeoutSeconds: 30,
-      logFile: 'logs/latest.log',
-      port: '25565',
-      maxPlayers: ''
+      logFile: 'logs/latest.log'
     };
   }
   if (kind === 'custom') {
@@ -82,15 +67,12 @@ function defaults(kind: ManagedKind): ManagedInstanceDraft {
       engine: 'custom',
       workdir: '',
       createDirectory: false,
-      group: '',
       commandLine: '',
       stopCommand: '',
       autoRestart: false,
       startupDelaySeconds: 0,
       shutdownTimeoutSeconds: 20,
-      logFile: '',
-      port: '',
-      maxPlayers: ''
+      logFile: ''
     };
   }
   return {
@@ -100,15 +82,12 @@ function defaults(kind: ManagedKind): ManagedInstanceDraft {
     engine: 'paper',
     workdir: '',
     createDirectory: false,
-    group: 'survival',
     commandLine: 'java -Xms2G -Xmx4G -jar server.jar nogui',
     stopCommand: 'stop',
     autoRestart: false,
     startupDelaySeconds: 0,
     shutdownTimeoutSeconds: 30,
-    logFile: 'logs/latest.log',
-    port: '25565',
-    maxPlayers: '2026'
+    logFile: 'logs/latest.log'
   };
 }
 
@@ -136,15 +115,12 @@ function fromServer(server: ServerInstanceConfig): ManagedInstanceDraft {
     engine: server.engine ?? (type === 'velocity' ? 'velocity' : type === 'custom' ? 'custom' : 'paper'),
     workdir: server.workdir,
     createDirectory: false,
-    group: server.group ?? '',
     commandLine: [quotePart(server.command), ...server.args.map(quotePart)].filter(Boolean).join(' '),
     stopCommand: server.stopCommand ?? '',
     autoRestart: server.autoRestart,
     startupDelaySeconds: server.startupDelaySeconds,
     shutdownTimeoutSeconds: server.shutdownTimeoutSeconds,
-    logFile: server.logFile ?? '',
-    port: server.port ? String(server.port) : '',
-    maxPlayers: server.maxPlayers ? String(server.maxPlayers) : ''
+    logFile: server.logFile ?? ''
   };
 }
 
@@ -282,61 +258,6 @@ export function ManagedInstanceForm({
               </div>
             </FormField>
 
-            <FormField label="分组">
-              <input
-                className="form-input"
-                value={draft.group}
-                onChange={(event) => patch({ group: event.target.value })}
-                placeholder="survival / proxy / backend"
-              />
-            </FormField>
-
-            <FormField label="端口">
-              <input
-                className="form-input"
-                value={draft.port}
-                onChange={(event) => patch({ port: event.target.value })}
-                inputMode="numeric"
-                placeholder="可选"
-              />
-            </FormField>
-
-            {draft.type === 'minecraft' && (
-              <>
-                <FormField label="核心标记">
-                  <select
-                    className="form-input"
-                    value={draft.engine}
-                    onChange={(event) => patch({ engine: event.target.value as ServerEngine })}
-                  >
-                    {engineOptions
-                      .filter((option) => option.value !== 'velocity')
-                      .map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                  </select>
-                </FormField>
-
-                <FormField label="最大人数">
-                  <input
-                    className="form-input"
-                    value={draft.maxPlayers}
-                    onChange={(event) => patch({ maxPlayers: event.target.value })}
-                    inputMode="numeric"
-                    placeholder="可选"
-                  />
-                </FormField>
-              </>
-            )}
-
-            <FormField label="到期时间" hint="当前版本仅作为预留字段，不限制启动。">
-              <div className="flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm text-slate-400">
-                <span className="flex-1">无限制</span>
-                <Calendar size={16} />
-              </div>
-            </FormField>
           </div>
 
           <div className="border-t border-slate-200 p-6">
@@ -436,7 +357,6 @@ function toInput(
     name: draft.name,
     workdir: draft.workdir,
     createDirectory: draft.createDirectory,
-    group: draft.group,
     autoRestart: draft.autoRestart,
     startupDelaySeconds: draft.startupDelaySeconds,
     shutdownTimeoutSeconds: draft.shutdownTimeoutSeconds,
@@ -448,9 +368,7 @@ function toInput(
       ...common,
       engine: draft.engine === 'velocity' ? 'paper' : draft.engine,
       commandLine: draft.commandLine,
-      stopCommand: draft.stopCommand,
-      port: numberOrUndefined(draft.port),
-      maxPlayers: numberOrUndefined(draft.maxPlayers)
+      stopCommand: draft.stopCommand
     };
   }
 
@@ -458,8 +376,7 @@ function toInput(
     return {
       ...common,
       commandLine: draft.commandLine,
-      stopCommand: draft.stopCommand,
-      port: numberOrUndefined(draft.port)
+      stopCommand: draft.stopCommand
     };
   }
 
@@ -488,16 +405,11 @@ function toPatch(draft: ManagedInstanceDraft): Partial<ServerInstanceConfig> {
     autoRestart: draft.autoRestart,
     startupDelaySeconds: draft.startupDelaySeconds,
     shutdownTimeoutSeconds: draft.shutdownTimeoutSeconds,
-    group: draft.group || undefined,
+    group: undefined,
     logFile: draft.logFile || undefined,
-    port: numberOrUndefined(draft.port),
-    maxPlayers: numberOrUndefined(draft.maxPlayers)
+    port: undefined,
+    maxPlayers: undefined
   };
-}
-
-function numberOrUndefined(value: string): number | undefined {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && value.trim() ? parsed : undefined;
 }
 
 function splitCommandLine(value = ''): string[] {

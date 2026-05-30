@@ -53,16 +53,6 @@ export function ServerCard({ server, state, onStart, onStop, onRestart, onKill, 
 
       <div className="mt-4 flex flex-wrap gap-2">
         <TypeBadge server={server} />
-        {server.engine && (
-          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-            {server.engine}
-          </span>
-        )}
-        {server.group && (
-          <span className="inline-flex rounded-full bg-lime-50 px-2.5 py-1 text-xs font-semibold text-lime-700 ring-1 ring-lime-200">
-            {server.group}
-          </span>
-        )}
       </div>
 
       <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -71,18 +61,8 @@ export function ServerCard({ server, state, onStart, onStop, onRestart, onKill, 
           <dd className="font-medium text-slate-800">{state.pid ?? '-'}</dd>
         </div>
         <div>
-          <dt className="text-xs text-slate-500">端口</dt>
-          <dd className="font-medium text-slate-800">{server.port ?? '-'}</dd>
-        </div>
-        <div>
           <dt className="text-xs text-slate-500">运行时长</dt>
           <dd className="font-medium text-slate-800">{formatUptime(state.uptimeSeconds)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-slate-500">在线</dt>
-          <dd className="font-medium text-slate-800">
-            {state.onlinePlayers ?? '-'} / {state.maxPlayers ?? server.maxPlayers ?? '-'}
-          </dd>
         </div>
       </dl>
 

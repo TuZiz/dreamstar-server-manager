@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, Copy, FileText, FolderOpen, Hash, ListRestart, Settings2, TerminalSquare, Users, Wifi } from 'lucide-react';
+import { CheckCircle2, Clock, Copy, FileText, FolderOpen, Hash, ListRestart, TerminalSquare, Wifi } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import type { InstanceRuntimeState, ServerInstanceConfig } from '../../shared/types';
 import { StatusBadge } from './StatusBadge';
@@ -131,7 +131,6 @@ function DetailSection({
 export function InstanceOverview({ server, state }: InstanceOverviewProps) {
   const [copyHint, setCopyHint] = useState('');
   const launchCommand = useMemo(() => [server.command, ...server.args].filter(Boolean).join(' '), [server.args, server.command]);
-  const playerLimit = state.maxPlayers ?? server.maxPlayers;
 
   const copyText = async (value: string, label: string) => {
     try {
@@ -163,37 +162,21 @@ export function InstanceOverview({ server, state }: InstanceOverviewProps) {
     { label: '启用状态', value: server.enabled ? '已启用' : '已禁用' },
     { label: '自动重启', value: booleanLabel(server.autoRestart) },
     { label: '启动延迟', value: `${server.startupDelaySeconds}s` },
-    { label: '停服超时', value: `${server.shutdownTimeoutSeconds}s` },
-    { label: '分组', value: server.group || '-' }
-  ];
-
-  const serverItems: DetailItem[] = [
-    { label: '端口', value: server.port ? String(server.port) : '-' },
-    { label: '玩家容量', value: playerLimit ? String(playerLimit) : '-' },
-    { label: '在线玩家', value: typeof state.onlinePlayers === 'number' ? String(state.onlinePlayers) : '-' },
-    { label: '正版验证', value: typeof server.onlineMode === 'boolean' ? (server.onlineMode ? '开启' : '关闭') : '-' },
-    { label: 'MOTD', value: server.motd || '-' },
-    { label: '配置更新', value: formatDateTime(server.updatedAt) }
+    { label: '停服超时', value: `${server.shutdownTimeoutSeconds}s` }
   ];
 
   return (
     <section className="min-h-0 flex-1 overflow-auto pb-2">
-      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-4 grid gap-3 md:grid-cols-3">
         <SummaryTile icon={<Hash size={15} />} label="状态" value={STATUS_LABEL[state.status]} />
         <SummaryTile icon={<TerminalSquare size={15} />} label="PID" value={state.pid ? String(state.pid) : '-'} />
         <SummaryTile icon={<Clock size={15} />} label="运行时长" value={formatUptime(state.uptimeSeconds)} />
-        <SummaryTile icon={<Users size={15} />} label="在线人数" value={`${state.onlinePlayers ?? '-'} / ${playerLimit ?? '-'}`} />
       </div>
 
       <div className="mb-4 panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={state.status} />
           <TypeBadge server={server} />
-          {server.engine && (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-              {server.engine}
-            </span>
-          )}
           {server.enabled ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
               <CheckCircle2 size={13} />
@@ -218,7 +201,6 @@ export function InstanceOverview({ server, state }: InstanceOverviewProps) {
         <DetailSection title="运行状态" icon={<Wifi size={16} />} items={runtimeItems} onCopy={copyText} />
         <DetailSection title="进程配置" icon={<FolderOpen size={16} />} items={processItems} onCopy={copyText} />
         <DetailSection title="生命周期" icon={<ListRestart size={16} />} items={policyItems} onCopy={copyText} />
-        <DetailSection title="服务信息" icon={<Settings2 size={16} />} items={serverItems} onCopy={copyText} />
       </div>
 
       <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">

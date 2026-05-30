@@ -43,8 +43,7 @@ function stoppedState(server: ServerInstanceConfig): InstanceRuntimeState {
     id: server.id,
     status: 'stopped',
     manualStop: false,
-    lastExitCode: null,
-    maxPlayers: server.maxPlayers
+    lastExitCode: null
   };
 }
 

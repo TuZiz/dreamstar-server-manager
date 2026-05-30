@@ -87,11 +87,6 @@ export function ServerTerminal() {
               <h1 className="text-2xl font-semibold text-slate-950">{server.name}</h1>
               <StatusBadge status={state.status} />
               <TypeBadge server={server} />
-              {server.engine && (
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
-                  {server.engine}
-                </span>
-              )}
             </div>
             <p className="mt-1 text-sm text-slate-500">{server.workdir}</p>
           </div>
