@@ -1,13 +1,38 @@
 import { Edit3, Files, Power, RefreshCw, ShieldAlert, SquareTerminal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CommandInput } from '../components/CommandInput';
+import { CommandInput, type CommandPreset } from '../components/CommandInput';
 import { ConfirmDangerDialog } from '../components/ConfirmDangerDialog';
 import { InstanceFileManager } from '../components/InstanceFileManager';
 import { LogViewer } from '../components/LogViewer';
 import { StatusBadge } from '../components/StatusBadge';
 import { TypeBadge } from '../components/TypeBadge';
 import { useServerStore } from '../stores/useServerStore';
+import type { ServerInstanceConfig } from '../../shared/types';
+
+function commandPresets(server: ServerInstanceConfig): CommandPreset[] {
+  if (server.type === 'minecraft') {
+    return [
+      { label: '在线列表', command: 'list' },
+      { label: '保存世界', command: 'save-all' },
+      { label: '广播维护', command: 'say 服务器即将维护，请及时下线。' },
+      { label: '正常停服', command: server.stopCommand || 'stop' }
+    ];
+  }
+
+  if (server.type === 'velocity') {
+    return [
+      { label: '全服列表', command: 'glist' },
+      { label: '广播维护', command: 'alert 服务器即将维护，请及时下线。' },
+      { label: '正常停止', command: server.stopCommand || 'end' }
+    ];
+  }
+
+  return [
+    { label: '退出', command: server.stopCommand || 'exit' },
+    { label: '帮助', command: 'help' }
+  ];
+}
 
 export function ServerTerminal() {
   const { id = '' } = useParams();
@@ -117,7 +142,11 @@ export function ServerTerminal() {
       {tab === 'console' ? (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <LogViewer logs={logs[id] ?? []} onClear={() => void run(() => clearLogs(id))} />
-          <CommandInput disabled={!running} onSend={(command) => run(() => sendCommand(id, command))} />
+          <CommandInput
+            disabled={!running}
+            presets={commandPresets(server)}
+            onSend={(command) => run(() => sendCommand(id, command))}
+          />
         </div>
       ) : (
         <InstanceFileManager server={server} />
