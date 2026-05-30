@@ -20,6 +20,7 @@ interface ServerStore {
   createMinecraft(input: MinecraftServerCreateInput): Promise<void>;
   createVelocity(input: VelocityServerCreateInput): Promise<void>;
   createCustom(input: CustomProcessCreateInput): Promise<void>;
+  update(id: string, patch: Partial<ServerInstanceConfig>): Promise<void>;
   start(id: string): Promise<void>;
   stop(id: string): Promise<void>;
   restart(id: string): Promise<void>;
@@ -107,6 +108,11 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
   async createCustom(input) {
     await window.dreamstar.servers.createCustomProcess(input);
+    await get().load();
+  },
+
+  async update(id, patch) {
+    await window.dreamstar.servers.update(id, patch);
     await get().load();
   },
 

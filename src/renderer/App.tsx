@@ -57,9 +57,9 @@ function Shell() {
           })}
         </nav>
         <div className="border-t border-slate-200 p-4 text-xs leading-5 text-slate-500">
-          本地桌面模式
+          本地 Web 模式
           <br />
-          renderer 通过 IPC 调用主进程
+          REST + SSE 连接本机 API
         </div>
       </aside>
 

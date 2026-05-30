@@ -5,6 +5,7 @@ import type {
   CustomProcessCreateInput,
   MinecraftServerCreateInput,
   ServerEngine,
+  ServerInstanceConfig,
   VelocityServerCreateInput
 } from '../../shared/types';
 import { useServerStore } from '../stores/useServerStore';
@@ -35,6 +36,7 @@ interface ManagedInstanceFormProps {
   title: string;
   description: string;
   submitLabel: string;
+  server?: ServerInstanceConfig;
 }
 
 const typeOptions: Array<{ value: ManagedKind; label: string }> = [
@@ -118,17 +120,47 @@ function slug(value: string): string {
     .replace(/[^\w-]/g, '');
 }
 
+function quotePart(value: string): string {
+  if (!value) {
+    return '';
+  }
+  return /\s/.test(value) ? `"${value.replace(/"/g, '\\"')}"` : value;
+}
+
+function fromServer(server: ServerInstanceConfig): ManagedInstanceDraft {
+  const type = server.type === 'velocity' || server.type === 'custom' ? server.type : 'minecraft';
+  return {
+    id: server.id,
+    name: server.name,
+    type,
+    engine: server.engine ?? (type === 'velocity' ? 'velocity' : type === 'custom' ? 'custom' : 'paper'),
+    workdir: server.workdir,
+    createDirectory: false,
+    group: server.group ?? '',
+    commandLine: [quotePart(server.command), ...server.args.map(quotePart)].filter(Boolean).join(' '),
+    stopCommand: server.stopCommand ?? '',
+    autoRestart: server.autoRestart,
+    startupDelaySeconds: server.startupDelaySeconds,
+    shutdownTimeoutSeconds: server.shutdownTimeoutSeconds,
+    logFile: server.logFile ?? '',
+    port: server.port ? String(server.port) : '',
+    maxPlayers: server.maxPlayers ? String(server.maxPlayers) : ''
+  };
+}
+
 export function ManagedInstanceForm({
   kind,
   title,
   description,
-  submitLabel
+  submitLabel,
+  server
 }: ManagedInstanceFormProps) {
   const navigate = useNavigate();
   const createMinecraft = useServerStore((state) => state.createMinecraft);
   const createVelocity = useServerStore((state) => state.createVelocity);
   const createCustom = useServerStore((state) => state.createCustom);
-  const [draft, setDraft] = useState(() => defaults(kind));
+  const updateServer = useServerStore((state) => state.update);
+  const [draft, setDraft] = useState(() => (server ? fromServer(server) : defaults(kind)));
   const [error, setError] = useState('');
 
   const typeLabel = useMemo(
@@ -165,13 +197,17 @@ export function ManagedInstanceForm({
     event.preventDefault();
     setError('');
     try {
-      const input = toInput(draft);
-      if (draft.type === 'minecraft') {
-        await createMinecraft(input as MinecraftServerCreateInput);
-      } else if (draft.type === 'velocity') {
-        await createVelocity(input as VelocityServerCreateInput);
+      if (server) {
+        await updateServer(server.id, toPatch(draft));
       } else {
-        await createCustom(input as CustomProcessCreateInput);
+        const input = toInput(draft);
+        if (draft.type === 'minecraft') {
+          await createMinecraft(input as MinecraftServerCreateInput);
+        } else if (draft.type === 'velocity') {
+          await createVelocity(input as VelocityServerCreateInput);
+        } else {
+          await createCustom(input as CustomProcessCreateInput);
+        }
       }
       navigate('/dashboard');
     } catch (err) {
@@ -221,6 +257,7 @@ export function ManagedInstanceForm({
                 value={draft.id}
                 onChange={(event) => patch({ id: event.target.value })}
                 placeholder="paper-survival-1"
+                disabled={Boolean(server)}
                 required
               />
             </FormField>
@@ -434,7 +471,40 @@ function toInput(
   };
 }
 
+function toPatch(draft: ManagedInstanceDraft): Partial<ServerInstanceConfig> {
+  const commandParts = splitCommandLine(draft.commandLine);
+  if (commandParts.length === 0) {
+    throw new Error('启动命令不能为空');
+  }
+  const type = draft.type as ServerInstanceConfig['type'];
+  return {
+    name: draft.name,
+    type,
+    engine: draft.type === 'velocity' ? 'velocity' : draft.engine,
+    workdir: draft.workdir,
+    command: commandParts[0],
+    args: commandParts.slice(1),
+    stopCommand: draft.stopCommand,
+    autoRestart: draft.autoRestart,
+    startupDelaySeconds: draft.startupDelaySeconds,
+    shutdownTimeoutSeconds: draft.shutdownTimeoutSeconds,
+    group: draft.group || undefined,
+    logFile: draft.logFile || undefined,
+    port: numberOrUndefined(draft.port),
+    maxPlayers: numberOrUndefined(draft.maxPlayers)
+  };
+}
+
 function numberOrUndefined(value: string): number | undefined {
   const parsed = Number(value);
   return Number.isFinite(parsed) && value.trim() ? parsed : undefined;
+}
+
+function splitCommandLine(value = ''): string[] {
+  const result: string[] = [];
+  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|[^\s]+/g;
+  for (const match of value.matchAll(pattern)) {
+    result.push((match[1] ?? match[2] ?? match[0]).replace(/\\"/g, '"').replace(/\\'/g, "'"));
+  }
+  return result;
 }

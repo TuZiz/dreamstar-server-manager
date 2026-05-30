@@ -1,9 +1,12 @@
 node_modules/
 out/
+out-web/
+output/
 dist/
 .vite/
 .env
 .env.*
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

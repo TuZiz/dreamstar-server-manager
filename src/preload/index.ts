@@ -37,6 +37,10 @@ const api: DreamstarApi = {
     listRuntimeStates: () => invoke('servers:list-runtime-states'),
     getLogs: (id) => invoke('servers:get-logs', id),
     clearLogs: (id) => invoke('servers:clear-logs', id),
+    listFiles: (id, relativePath) => invoke('servers:list-files', id, relativePath),
+    readTextFile: (id, relativePath) => invoke('servers:read-text-file', id, relativePath),
+    writeTextFile: (id, relativePath, content) =>
+      invoke('servers:write-text-file', id, relativePath, content),
     subscribeLogs: (id, listener) => {
       const handler = (_event: Electron.IpcRendererEvent, entry: unknown) => {
         const logEntry = entry as Parameters<typeof listener>[0];

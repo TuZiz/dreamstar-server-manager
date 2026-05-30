@@ -140,6 +140,18 @@ export function registerIpc(context: IpcContext): void {
   handle('servers:list-runtime-states', () => processManager.listRuntimeStates());
   handle('servers:get-logs', (id: string) => logService.getLogs(id));
   handle('servers:clear-logs', (id: string) => logService.clear(id));
+  handle('servers:list-files', (id: string, relativePath?: string) => {
+    const server = configService.getServer(id);
+    return fileService.listDirectory(server.workdir, relativePath ?? '');
+  });
+  handle('servers:read-text-file', (id: string, relativePath: string) => {
+    const server = configService.getServer(id);
+    return fileService.readTextFile(server.workdir, relativePath);
+  });
+  handle('servers:write-text-file', (id: string, relativePath: string, content: string) => {
+    const server = configService.getServer(id);
+    return fileService.writeTextFile(server.workdir, relativePath, content);
+  });
 
   handle('databases:list', () => databaseManager.list());
   handle('databases:create', (input: Omit<DatabaseConnectionConfig, 'createdAt' | 'updatedAt'>) =>

@@ -192,3 +192,18 @@ export interface SelectFileOptions {
   title?: string;
   filters?: Array<{ name: string; extensions: string[] }>;
 }
+
+export interface InstanceFileEntry {
+  name: string;
+  relativePath: string;
+  type: 'file' | 'directory';
+  size: number;
+  modifiedAt: string;
+}
+
+export interface InstanceTextFile {
+  relativePath: string;
+  content: string;
+  size: number;
+  truncated: boolean;
+}

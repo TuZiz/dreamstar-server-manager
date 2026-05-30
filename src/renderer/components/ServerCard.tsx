@@ -98,7 +98,9 @@ export function ServerCard({ server, state, onStart, onStop, onRestart, onKill, 
           <IconButton icon={<Power size={16} />} label="强制终止" danger onClick={() => setDanger('kill')} />
         </div>
         <div className="flex gap-2">
-          <IconButton icon={<Edit3 size={16} />} label="编辑" disabled />
+          <Link className="square-button" title="编辑" aria-label="编辑" to={`/servers/${server.id}/edit`}>
+            <Edit3 size={16} />
+          </Link>
           <Link className="square-button" title="终端" aria-label="终端" to={`/servers/${server.id}`}>
             <Terminal size={16} />
           </Link>

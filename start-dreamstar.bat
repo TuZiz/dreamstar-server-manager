@@ -3,8 +3,6 @@ setlocal
 
 cd /d "%~dp0"
 
-set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
-
 where node >nul 2>nul
 if errorlevel 1 (
   echo Node.js was not found. Please install Node.js first.
@@ -29,30 +27,9 @@ if not exist "node_modules" (
   )
 )
 
-if not exist "node_modules\electron\path.txt" (
-  goto install_electron_binary
-)
-
-if not exist "node_modules\electron\dist\electron.exe" (
-  goto install_electron_binary
-)
-
-goto start_app
-
-:install_electron_binary
-  echo Installing Electron binary...
-  call npx install-electron --no
-  if errorlevel 1 (
-    echo Electron binary install failed.
-    echo You can retry with: npx install-electron --no
-    pause
-    exit /b 1
-  )
-
-:start_app
-
-echo Starting DreamStar Server Manager...
-call npm run dev
+echo Starting DreamStar Server Manager web panel...
+start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Start-Process 'http://127.0.0.1:5173/'"
+call npm run dev:web
 
 if errorlevel 1 (
   echo DreamStar Server Manager exited with an error.

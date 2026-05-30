@@ -4,6 +4,8 @@ import type {
   CustomProcessCreateInput,
   DatabaseConnectionConfig,
   InstanceRuntimeState,
+  InstanceFileEntry,
+  InstanceTextFile,
   LogEntry,
   MinecraftServerCreateInput,
   RedisKeyDetails,
@@ -40,6 +42,9 @@ export interface DreamstarApi {
     listRuntimeStates(): Promise<InstanceRuntimeState[]>;
     getLogs(id: string): Promise<LogEntry[]>;
     clearLogs(id: string): Promise<void>;
+    listFiles(id: string, relativePath?: string): Promise<InstanceFileEntry[]>;
+    readTextFile(id: string, relativePath: string): Promise<InstanceTextFile>;
+    writeTextFile(id: string, relativePath: string, content: string): Promise<void>;
     subscribeLogs(id: string, listener: (entry: LogEntry) => void): () => void;
     subscribeState(listener: (state: InstanceRuntimeState) => void): () => void;
     subscribeLogsCleared(listener: (id: string) => void): () => void;

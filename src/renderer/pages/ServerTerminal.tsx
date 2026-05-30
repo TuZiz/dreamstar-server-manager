@@ -1,8 +1,9 @@
-import { Power, RefreshCw, ShieldAlert, SquareTerminal } from 'lucide-react';
+import { Edit3, Files, Power, RefreshCw, ShieldAlert, SquareTerminal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CommandInput } from '../components/CommandInput';
 import { ConfirmDangerDialog } from '../components/ConfirmDangerDialog';
+import { InstanceFileManager } from '../components/InstanceFileManager';
 import { LogViewer } from '../components/LogViewer';
 import { StatusBadge } from '../components/StatusBadge';
 import { TypeBadge } from '../components/TypeBadge';
@@ -13,6 +14,7 @@ export function ServerTerminal() {
   const { servers, states, logs, loadLogs, clearLogs, stop, restart, kill, sendCommand } = useServerStore();
   const [error, setError] = useState('');
   const [confirmKill, setConfirmKill] = useState(false);
+  const [tab, setTab] = useState<'console' | 'files'>('console');
   const server = useMemo(() => servers.find((item) => item.id === id), [servers, id]);
   const state = states[id] ?? { id, status: 'stopped' as const, manualStop: false, lastExitCode: null };
   const running = state.status === 'running';
@@ -76,6 +78,10 @@ export function ServerTerminal() {
             <RefreshCw size={16} />
             重启
           </button>
+          <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800" to={`/servers/${server.id}/edit`}>
+            <Edit3 size={16} />
+            编辑
+          </Link>
           <button className="inline-flex h-10 items-center gap-2 rounded-md border border-red-300 bg-red-50 px-3 text-sm font-semibold text-red-700" onClick={() => setConfirmKill(true)}>
             <ShieldAlert size={16} />
             终止
@@ -85,10 +91,37 @@ export function ServerTerminal() {
 
       {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <LogViewer logs={logs[id] ?? []} onClear={() => void run(() => clearLogs(id))} />
-        <CommandInput disabled={!running} onSend={(command) => run(() => sendCommand(id, command))} />
+      <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${
+            tab === 'console' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700'
+          }`}
+          onClick={() => setTab('console')}
+        >
+          <SquareTerminal size={15} />
+          控制台
+        </button>
+        <button
+          type="button"
+          className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold ${
+            tab === 'files' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700'
+          }`}
+          onClick={() => setTab('files')}
+        >
+          <Files size={15} />
+          文件
+        </button>
       </div>
+
+      {tab === 'console' ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <LogViewer logs={logs[id] ?? []} onClear={() => void run(() => clearLogs(id))} />
+          <CommandInput disabled={!running} onSend={(command) => run(() => sendCommand(id, command))} />
+        </div>
+      ) : (
+        <InstanceFileManager server={server} />
+      )}
 
       <ConfirmDangerDialog
         open={confirmKill}
