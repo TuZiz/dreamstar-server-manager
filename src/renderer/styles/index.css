@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #17202a;
+  background: #f4f6f8;
+  font-family:
+    "Segoe UI Variable",
+    "Segoe UI",
+    "Microsoft YaHei",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #f4f6f8;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.terminal-scrollbar {
+  scrollbar-color: #4b5563 #111827;
+  scrollbar-width: thin;
+}
+
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: #111827;
+}
+
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 999px;
+}
+
+.form-input {
+  @apply h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm transition placeholder:text-slate-400;
+}
+
+.form-input:focus {
+  @apply border-blue-500 ring-2 ring-blue-100;
+}
+
+.form-checkbox {
+  @apply h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500;
+}
+
+.panel {
+  @apply rounded-lg border border-slate-200 bg-white shadow-panel;
+}
+
+.square-button {
+  @apply inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45;
+}
+
+.danger-button {
+  @apply border-red-200 text-red-600 hover:bg-red-50;
+}

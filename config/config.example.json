@@ -1,0 +1,13 @@
+{
+  "servers": [],
+  "databases": [],
+  "settings": {
+    "startupOrder": [],
+    "shutdownOrder": [],
+    "theme": "light",
+    "defaultServerRoot": "",
+    "backupDirectory": "",
+    "mysqlDumpPath": "",
+    "pgDumpPath": ""
+  }
+}
